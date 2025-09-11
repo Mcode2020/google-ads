@@ -28,7 +28,7 @@ export default function CampaignForm({
   onCancel,
   initialData,
 }: {
-  onCreated: () => void;
+onCreated: (updatedData: any) => void;
   onCancel: () => void;
   initialData?: any;
 }) {
@@ -102,8 +102,13 @@ export default function CampaignForm({
         setKeywordsList([]);
       }
 
-      onCreated();
-    } catch (err: any) {
+      const updatedData = {
+        ...draft,
+        keywords: keywordsList,
+        status: initialData?.status || 'draft',
+      };
+
+  onCreated(updatedData);    } catch (err: any) {
       setError(err.message || 'Unknown error');
     } finally {
       setLoading(false);

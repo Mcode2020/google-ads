@@ -17,14 +17,14 @@ export default function PreviewModal({
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
+    const [currentRow, setCurrentRow] = useState(row);
 
   async function handlePublish() {
-    if (!row.name?.trim()) return toast.error('Name is required');
-    if (Number(row.daily_budget) <= 5)
+    if (!currentRow.name?.trim()) return toast.error('Name is required');
+    if (Number(currentRow.daily_budget) <= 5)
       return toast.error('Budget must be greater than 5');
-    if (!row.keywords || row.keywords.length < 1)
+    if (!currentRow.keywords || currentRow.keywords.length < 1)
       return toast.error('At least one keyword required');
-
     try {
       setLoading(true);
       await simulateApi(async () => {
@@ -34,7 +34,7 @@ export default function PreviewModal({
             status: 'published',
             last_synced: new Date().toISOString(),
           })
-          .eq('id', row.id);
+          .eq('id', currentRow.id);
         if (error) throw error;
       });
       onPublish();
@@ -70,25 +70,25 @@ export default function PreviewModal({
 
             <p className="py-2 border-b border-gray-200">
               <strong className="w-[50%] inline-block font-medium">Name:</strong>{' '}
-              {row.name}
+              {currentRow.name}
             </p>
             <p className="py-2 border-b border-gray-200">
               <strong className="w-[50%] inline-block font-medium">Budget:</strong>{' '}
-              ${row.daily_budget}
+              ${currentRow.daily_budget}
             </p>
             <p className="py-2 border-b border-gray-200">
               <strong className="w-[50%] inline-block font-medium">
                 Locations:
               </strong>{' '}
-              {row?.target_locations?.length
-                ? row.target_locations.join(', ')
+              {currentRow?.target_locations?.length
+                ? currentRow.target_locations.join(', ')
                 : 'None'}
             </p>
             <p className="py-2">
               <strong className="w-[50%] inline-block font-medium">
                 Keywords:
               </strong>{' '}
-              {row?.keywords?.length ? row.keywords.join(', ') : 'None'}
+              {currentRow?.keywords?.length ? currentRow.keywords.join(', ') : 'None'}
             </p>
 
             <div className="mt-5 flex gap-2">
@@ -100,16 +100,16 @@ export default function PreviewModal({
               </button>
               <button
                 className={`px-4 py-2 rounded text-white ${
-                  row.status === 'published'
+                  currentRow.status === 'published'
                     ? 'bg-gray-400 cursor-not-allowed'
                     : 'bg-blue-600 hover:bg-blue-700'
                 }`}
                 onClick={handlePublish}
-                disabled={row.status === 'published' || loading}
+                disabled={currentRow.status === 'published' || loading}
               >
                 {loading
                   ? 'Publishing…'
-                  : row.status === 'published'
+                  : currentRow.status === 'published'
                   ? 'Already Published'
                   : 'Publish'}
               </button>
@@ -117,9 +117,9 @@ export default function PreviewModal({
           </>
         ) : (
           <CampaignForm
-            initialData={row}
-            onCreated={() => {
-              onPublish();
+            initialData={currentRow}
+            onCreated={(updatedData) => {
+              setCurrentRow(updatedData); // <-- update preview
               setIsEditing(false);
             }}
             onCancel={() => setIsEditing(false)}
