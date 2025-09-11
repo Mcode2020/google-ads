@@ -116,6 +116,12 @@
         setCurrentPage(1);
     };
 
+    const handleUpdateRow = (updatedRow: Row) => {
+  setRows((prev) =>
+    prev.map((r) => (r.id === updatedRow.id ? { ...r, ...updatedRow } : r))
+  );
+};
+
     return (
         <div className="h-[88vh] p-6 bg-white rounded-lg relative border border-gray-200">
         {/* Header */}
@@ -399,6 +405,7 @@
             row={previewRow}
             onClose={() => setPreviewRow(null)}
             onPublish={load}
+            onUpdateRow={handleUpdateRow}
             />
         )}
         </div>

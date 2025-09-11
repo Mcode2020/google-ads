@@ -10,10 +10,12 @@ export default function PreviewModal({
   row,
   onClose,
   onPublish,
+  onUpdateRow,
 }: {
   row: any;
   onClose: () => void;
   onPublish: () => void;
+  onUpdateRow: (updatedData: any) => void;
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -118,9 +120,11 @@ export default function PreviewModal({
         ) : (
           <CampaignForm
             initialData={currentRow}
+            
             onCreated={(updatedData) => {
               setCurrentRow(updatedData); // <-- update preview
               setIsEditing(false);
+              onUpdateRow(updatedData);
             }}
             onCancel={() => setIsEditing(false)}
           />
