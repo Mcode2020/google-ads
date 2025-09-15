@@ -2,6 +2,7 @@
 import React from 'react';
 import CampaignsTable from '@/components/CampaignsTable';
 import AuthButton from '@/components/AuthButton';
+import GoogleAdsIntegration from '@/components/GoogleAdsIntegration';
 import { useGoogleAuth } from '@/hooks/useGoogleAuth';
 
 export default function DashboardPage() {
@@ -41,6 +42,13 @@ export default function DashboardPage() {
           <AuthButton />
         </div>
       </div>
+      
+      {/* Google Ads Integration Section */}
+      <div className="mb-8">
+        <GoogleAdsIntegration />
+      </div>
+      
+      {/* Original Campaigns Table */}
       <div className="">
         <CampaignsTable />
       </div>

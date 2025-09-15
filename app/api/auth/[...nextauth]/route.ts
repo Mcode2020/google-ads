@@ -12,6 +12,7 @@ export const authOptions: AuthOptions = {
             clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
             authorization: {
                 params: {
+                    scope: "openid email profile https://www.googleapis.com/auth/adwords",
                     access_type: "offline",
                     prompt: "consent"
                 }
@@ -36,6 +37,10 @@ export const authOptions: AuthOptions = {
                     }
 
                     console.log('User stored in Supabase:', supabaseUser);
+
+                    // Note: Google Ads connection will be checked when user visits dashboard
+                    // We don't check it here to keep sign-in fast
+
                     return true;
                 } catch (error) {
                     console.error('Error during sign in:', error);
@@ -49,7 +54,14 @@ export const authOptions: AuthOptions = {
             // Initial sign in
             if (account) {
                 token.accessToken = account.access_token;
+                token.refreshToken = account.refresh_token;
                 token.expires_at = account.expires_at;
+
+                console.log('JWT callback - tokens received:', {
+                    hasAccessToken: !!account.access_token,
+                    hasRefreshToken: !!account.refresh_token,
+                    expiresAt: account.expires_at
+                });
 
                 // Update token in Supabase if user email is available
                 if (user?.email && account.access_token) {
@@ -62,6 +74,7 @@ export const authOptions: AuthOptions = {
 
         async session({ session, token }: { session: Session; token: JWT }) {
             session.accessToken = token.accessToken as string;
+            session.refreshToken = token.refreshToken as string;
             session.expires_at = token.expires_at as number;
             return session;
         }
