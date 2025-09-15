@@ -1,16 +1,49 @@
 'use client';
 import React from 'react';
 import CampaignsTable from '@/components/CampaignsTable';
+import AuthButton from '@/components/AuthButton';
+import { useGoogleAuth } from '@/hooks/useGoogleAuth';
 
 export default function DashboardPage() {
+  const { isAuthenticated, isLoading, session } = useGoogleAuth();
+
+  if (isLoading) {
+    return (
+      <div className="p-6 flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="p-6 flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <h1 className="text-3xl font-semibold mb-4">Welcome to AdsPilot</h1>
+          <p className="text-gray-600 mb-6">Please sign in with your Google account to access your campaigns.</p>
+          <AuthButton />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-semibold mb-5">AdsPilot — Campaigns</h1>
-        <div className="">
-          <CampaignsTable />
+      <div className="flex justify-between items-center mb-5">
+        <h1 className="text-2xl font-semibold">AdsPilot — Campaigns</h1>
+        <div className="flex items-center space-x-4">
+          <span className="text-sm text-gray-600">
+            Welcome, {session?.user?.name || session?.user?.email}
+          </span>
+          <AuthButton />
         </div>
-        
+      </div>
+      <div className="">
+        <CampaignsTable />
+      </div>
     </div>
   );
 }

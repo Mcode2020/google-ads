@@ -54,42 +54,74 @@
     );
 
     async function load() {
-        setError(null);
-        setLoading(true);
-        try {
-        const data = await simulateApi(async () => {
-            const { data, error } = await supabase
-            .from('campaigns')
-            .select('*')
-            .order('created_at', { ascending: false });
-            if (error) throw error;
-            return data;
-        });
-        setRows((data as any[]) || []);
-        } catch (err: any) {
-        setError(err.message || 'Failed to load');
-        } finally {
-        setLoading(false);
-        }
+         let session = (await supabase.auth.getSession()).data.session;
+        
+              // If no session, sign in the user automatically
+              if (!session) {
+                const { data, error: loginError } = await supabase.auth.signInWithPassword({
+                  email:  process.env.EMAIL!, // replace with your user
+                  password: process.env.PASSWORD!,              // replace with your password
+                });
+                if (loginError) throw new Error("Login failed: " + loginError.message);
+                session = data.session;
+                if (!session) throw new Error("Login succeeded but session is null");
+              }
+    if (!session) return setError('Not logged in');
+    setError(null);
+    setLoading(true);
+    try {
+      const res = await fetch('/api/campaigns', {
+        headers: { Authorization: `Bearer ${session.access_token}` }
+      });
+      if (!res.ok) throw new Error('Failed to load campaigns');
+      const data: Row[] = await res.json();
+      setRows(data || []);
+    } catch (err: any) {
+      setError(err.message || 'Failed to load');
+    } finally {
+      setLoading(false);
     }
+  }
 
-    async function handleSync(row: Row) {
-        setSyncingId(row.id);
-        try {
+   async function handleSync(row: Row) {
+    if (!row?.id) return;
+    setSyncingId(row.id);
+    setError(null);
+
+    try {
+        // Simulate API latency and possible failure
         await simulateApi(async () => {
-            const { error } = await supabase
-            .from('campaigns')
-            .update({ last_synced: new Date().toISOString() })
-            .eq('id', row.id);
-            if (error) throw error;
-        }, 1000, 0.1);
-        await load();
-        } catch (err: any) {
-        setError(err.message || 'Sync failed');
-        } finally {
+            const res = await fetch(`/api/campaigns/${row.id}`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+                },
+                body: JSON.stringify({ last_synced: new Date().toISOString() }),
+            });
+
+            if (!res.ok) {
+                const errorData = await res.json();
+                throw new Error(errorData?.error || 'Sync failed');
+            }
+
+            // Optionally, get updated row data from response
+            const updatedRow: Row = (await res.json()).data[0];
+
+            // Update the specific row locally instead of reloading all rows
+            setRows((prev) =>
+                prev.map((r) => (r.id === row.id ? { ...r, ...updatedRow } : r))
+            );
+        }, 1000, 0.1); // 1s delay, 10% chance of simulated error
+
+    } catch (err: any) {
+        console.error('Sync failed:', err);
+        setError(err?.message || 'Sync failed');
+    } finally {
         setSyncingId(null);
-        }
     }
+}
+
 
     useEffect(() => {
         load();
