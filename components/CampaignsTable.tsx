@@ -40,7 +40,7 @@
     const [budgetRange, setBudgetRange] = useState<[number, number]>([0, 1000]);
 
     // Filtered rows
-    const filteredRows = rows.filter((row) => {
+    const filteredRows = rows?.filter((row) => {
         const matchesStatus = statusFilter === 'all' ? true : row.status === statusFilter;
         const matchesBudget = row.daily_budget >= budgetRange[0] && row.daily_budget <= budgetRange[1];
         return matchesStatus && matchesBudget;
@@ -53,74 +53,62 @@
         currentPage * rowsPerPage
     );
 
-    async function load() {
-         let session = (await supabase.auth.getSession()).data.session;
-        
-              // If no session, sign in the user automatically
-              if (!session) {
-                const { data, error: loginError } = await supabase.auth.signInWithPassword({
-                  email:  process.env.EMAIL!, // replace with your user
-                  password: process.env.PASSWORD!,              // replace with your password
-                });
-                if (loginError) throw new Error("Login failed: " + loginError.message);
-                session = data.session;
-                if (!session) throw new Error("Login succeeded but session is null");
-              }
-    if (!session) return setError('Not logged in');
-    setError(null);
-    setLoading(true);
-    try {
-      const res = await fetch('/api/campaigns', {
-        headers: { Authorization: `Bearer ${session.access_token}` }
-      });
-      if (!res.ok) throw new Error('Failed to load campaigns');
-      const data: Row[] = await res.json();
-      setRows(data || []);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load');
-    } finally {
-      setLoading(false);
-    }
+   async function load() {
+  setError(null);
+  setLoading(true);
+
+  try {
+    // Directly call your Next.js API route — NextAuth session cookies are sent automatically
+    const res = await fetch("/api/campaigns");
+
+    if (!res.ok) throw new Error("Failed to load campaigns");
+
+    const data: Row[] = await res.json();
+    setRows(data || []);
+  } catch (err: any) {
+    console.error("Load failed:", err);
+    setError(err.message || "Failed to load");
+  } finally {
+    setLoading(false);
   }
-
-   async function handleSync(row: Row) {
-    if (!row?.id) return;
-    setSyncingId(row.id);
-    setError(null);
-
-    try {
-        // Simulate API latency and possible failure
-        await simulateApi(async () => {
-            const res = await fetch(`/api/campaigns/${row.id}`, {
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
-                },
-                body: JSON.stringify({ last_synced: new Date().toISOString() }),
-            });
-
-            if (!res.ok) {
-                const errorData = await res.json();
-                throw new Error(errorData?.error || 'Sync failed');
-            }
-
-            // Optionally, get updated row data from response
-            const updatedRow: Row = (await res.json()).data[0];
-
-            // Update the specific row locally instead of reloading all rows
-            setRows((prev) =>
-                prev.map((r) => (r.id === row.id ? { ...r, ...updatedRow } : r))
-            );
-        }, 1000, 0.1); // 1s delay, 10% chance of simulated error
-
-    } catch (err: any) {
-        console.error('Sync failed:', err);
-        setError(err?.message || 'Sync failed');
-    } finally {
-        setSyncingId(null);
-    }
 }
+
+
+  async function handleSync(row: Row) {
+  if (!row?.id) return;
+  setSyncingId(row.id);
+  setError(null);
+
+  try {
+    await simulateApi(async () => {
+      const res = await fetch(`/api/campaigns/${row.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ last_synced: new Date().toISOString() }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData?.error || "Sync failed");
+      }
+
+      const updatedRow: Row = (await res.json()).data[0];
+
+      // Update only the changed row
+      setRows((prev) =>
+        prev.map((r) => (r.id === row.id ? { ...r, ...updatedRow } : r))
+      );
+    }, 1000, 0.1); // 1s delay, 10% simulated error
+  } catch (err: any) {
+    console.error("Sync failed:", err);
+    setError(err?.message || "Sync failed");
+  } finally {
+    setSyncingId(null);
+  }
+}
+
 
 
     useEffect(() => {

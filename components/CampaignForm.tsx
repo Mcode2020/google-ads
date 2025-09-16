@@ -59,30 +59,17 @@ onCreated: (updatedData: any) => void;
  async function handleSaveDraft() {
   setError(null);
   setLoading(true);
+
   try {
     const keywords = keywordsList;
 
     await simulateApi(async () => {
-      let session = (await supabase.auth.getSession()).data.session;
-
-      // If no session, sign in the user automatically
-      if (!session) {
-        const { data, error: loginError } = await supabase.auth.signInWithPassword({
-          email: process.env.EMAIL!, // replace with your user
-          password: process.env.PASSWORD!,              // replace with your password
-        });
-        if (loginError) throw new Error("Login failed: " + loginError.message);
-        session = data.session;
-        if (!session) throw new Error("Login succeeded but session is null");
-      }
-
       if (initialData) {
-        // UPDATE existing campaign
+        // 🔄 UPDATE existing campaign
         const res = await fetch(`/api/campaigns/${initialData.id}`, {
           method: "PATCH",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
           },
           body: JSON.stringify({
             name: draft.name,
@@ -97,12 +84,11 @@ onCreated: (updatedData: any) => void;
         if (result.error) throw new Error(result.error);
         toast.success("Campaign updated successfully");
       } else {
-        // INSERT new campaign
+        // ➕ INSERT new campaign
         const res = await fetch("/api/campaigns", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
           },
           body: JSON.stringify({
             name: draft.name,
@@ -122,24 +108,24 @@ onCreated: (updatedData: any) => void;
 
     // Reset form if creating new
     if (!initialData) {
-      setDraft({ id: '', name: '', daily_budget: '10', target_locations: [] });
-      setKeywordInput('');
+      setDraft({ id: "", name: "", daily_budget: "10", target_locations: [] });
+      setKeywordInput("");
       setKeywordsList([]);
     }
 
     const updatedData = {
       ...draft,
       keywords: keywordsList,
-      status: initialData?.status || 'draft',
+      status: initialData?.status || "draft",
     };
     onCreated(updatedData);
-
   } catch (err: any) {
-    setError(err.message || 'Unknown error');
+    setError(err.message || "Unknown error");
   } finally {
     setLoading(false);
   }
 }
+
 
 
   const locationOptions = availableLocations.map((loc) => ({

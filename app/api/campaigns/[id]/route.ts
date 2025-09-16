@@ -1,40 +1,66 @@
 // app/api/campaigns/[id]/route.ts
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { getServerSession } from "next-auth";
+import { authOptions } from '../../auth/[...nextauth]/route';
 
 const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY!
 );
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(
+    req: Request,
+    { params }: { params: { id: string } }
+) {
     try {
         const campaignId = params.id;
-        console.log(campaignId, "==================");
 
-        const authHeader = req.headers.get('authorization');
-        if (!authHeader) return NextResponse.json({ error: 'Missing token' }, { status: 401 });
+        // 1. Get session from NextAuth
+        const session = await getServerSession(authOptions);
+        if (!session || !session.user?.email) {
+            return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+        }
 
-        const token = authHeader.replace('Bearer ', '');
-        const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token);
-        if (userError || !user) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+        // 2. Find user in Supabase `users` table
+        const { data: user, error: userError } = await supabaseAdmin
+            .from("users")
+            .select("id")
+            .eq("email", session.user.email)
+            .single();
 
+        if (userError || !user) {
+            return NextResponse.json({ error: "User not found" }, { status: 404 });
+        }
+
+        // 3. Parse request body
         const body = await req.json();
 
-        // Update the campaign only if it belongs to the logged-in user
+        // 4. Update campaign if it belongs to logged-in user
         const { data, error } = await supabaseAdmin
-            .from('campaigns')
+            .from("campaigns")
             .update(body)
-            .eq('id', campaignId)
-            .eq('user_id', user.id)
+            .eq("id", campaignId)
+            .eq("user_id", user.id)
             .select();
-        console.log(data, error, "==================");
-        if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-        if (!data || data.length === 0) return NextResponse.json({ error: 'Campaign not found or not authorized' }, { status: 404 });
+
+        if (error) {
+            return NextResponse.json({ error: error.message }, { status: 400 });
+        }
+
+        if (!data || data.length === 0) {
+            return NextResponse.json(
+                { error: "Campaign not found or not authorized" },
+                { status: 404 }
+            );
+        }
 
         return NextResponse.json({ data });
     } catch (err: any) {
-        console.error(err);
-        return NextResponse.json({ error: err.message || 'Server error' }, { status: 500 });
+        console.error("PATCH /api/campaigns/[id] error:", err);
+        return NextResponse.json(
+            { error: err.message || "Server error" },
+            { status: 500 }
+        );
     }
 }
