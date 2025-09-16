@@ -426,6 +426,7 @@
             onClose={() => setPreviewRow(null)}
             onPublish={load}
             onUpdateRow={handleUpdateRow}
+            onRefresh={load}
             />
         )}
         </div>

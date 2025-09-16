@@ -1,5 +1,4 @@
 'use client';
-import { supabase } from '@/lib/supabaseClient';
 import { useState, useEffect } from 'react';
 import { toast } from "react-hot-toast";
 import { Pencil } from "lucide-react";
@@ -18,11 +17,13 @@ export default function PreviewModal({
   onClose,
   onPublish,
   onUpdateRow,
+  onRefresh,
 }: {
   row: any;
   onClose: () => void;
   onPublish: () => void;
   onUpdateRow: (updatedData: any) => void;
+  onRefresh?: () => void;
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -60,23 +61,31 @@ export default function PreviewModal({
 
   const handlePublish = async () => {
     setLoading(true);
+    let dbUpdateSuccessful = false;
+    let googleAdsSuccessful = false;
 
     try {
-      // Update campaign status to published in database
-      const { data: updatedData, error: dbError } = await supabase
-        .from('campaigns')
-        .update({ 
+      // Update campaign status to published using API route
+      const response = await fetch(`/api/campaigns/${currentRow.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
           status: 'published',
           updated_at: new Date().toISOString()
-        })
-        .eq('id', currentRow.id)
-        .select()
-        .single();
+        }),
+      });
 
-      if (dbError) {
-        throw new Error(`Database error: ${dbError.message}`);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`API error: ${errorData.error || 'Failed to update campaign'}`);
       }
 
+      const { data: updatedDataArray } = await response.json();
+      const updatedData = updatedDataArray[0];
+
+      dbUpdateSuccessful = true;
       console.log('Campaign status updated to published in database');
 
       // If Google Ads is connected and an account is selected, publish to Google Ads
@@ -107,21 +116,27 @@ export default function PreviewModal({
           console.log('Google Ads API response:', googleAdsResult);
           
           if (googleAdsResult.success) {
+            googleAdsSuccessful = true;
             toast.success(`Campaign published to Google Ads! Account: ${selectedAccountData?.descriptive_name}`);
             
-            // Update campaign with Google Ads info
-            const { error: googleAdsUpdateError } = await supabase
-              .from('campaigns')
-              .update({
+            // Update campaign with Google Ads info using API route
+            const googleAdsUpdateResponse = await fetch(`/api/campaigns/${currentRow.id}`, {
+              method: 'PATCH',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
                 google_ads_campaign_id: googleAdsResult.campaignId,
                 google_ads_customer_id: selectedAccount,
                 google_ads_account_name: selectedAccountData?.descriptive_name,
                 last_synced: new Date().toISOString(),
-              })
-              .eq('id', currentRow.id);
+              }),
+            });
 
-            if (googleAdsUpdateError) {
-              console.error('Failed to update Google Ads info in database:', googleAdsUpdateError);
+            if (!googleAdsUpdateResponse.ok) {
+              const errorData = await googleAdsUpdateResponse.json();
+              console.error('Failed to update Google Ads info in database:', errorData.error);
+              toast.error('Campaign created in Google Ads but failed to update database with Google Ads info');
             }
 
             // Update local state
@@ -135,22 +150,57 @@ export default function PreviewModal({
             }));
           } else {
             toast.error(`Google Ads creation failed: ${googleAdsResult.message}`);
-            toast.success('Campaign published locally (Google Ads publishing failed)');
+            if (dbUpdateSuccessful) {
+              toast.success('Campaign published locally (Google Ads publishing failed)');
+            }
           }
         } catch (googleAdsError) {
           console.error('Google Ads publishing failed:', googleAdsError);
-          toast.error('Google Ads publishing failed, but campaign was published locally');
+          if (dbUpdateSuccessful) {
+            toast.error('Google Ads publishing failed, but campaign was published locally');
+          }
         }
       } else {
-        toast.success('Campaign published locally');
+        if (dbUpdateSuccessful) {
+          toast.success('Campaign published locally');
+        }
       }
 
-      // Update parent component
-      onUpdateRow({
-        ...updatedData,
-        google_ads_customer_id: selectedAccount,
-        google_ads_account_name: googleAdsAccounts.find(acc => acc.id === selectedAccount)?.descriptive_name,
-      });
+      // Fetch the latest campaign data from the database after publishing using API route
+      try {
+        const latestDataResponse = await fetch(`/api/campaigns/${currentRow.id}`);
+        
+        if (latestDataResponse.ok) {
+          const { data: latestCampaignData } = await latestDataResponse.json();
+          
+          // Update local state with the latest data
+          setCurrentRow(latestCampaignData);
+          
+          // Update parent component with the latest data
+          onUpdateRow(latestCampaignData);
+        } else {
+          console.error('Failed to fetch latest campaign data');
+          // Fallback to the data we have
+          onUpdateRow({
+            ...updatedData,
+            google_ads_customer_id: selectedAccount,
+            google_ads_account_name: googleAdsAccounts.find(acc => acc.id === selectedAccount)?.descriptive_name,
+          });
+        }
+      } catch (fetchError) {
+        console.error('Failed to fetch latest campaign data:', fetchError);
+        // Fallback to the data we have
+        onUpdateRow({
+          ...updatedData,
+          google_ads_customer_id: selectedAccount,
+          google_ads_account_name: googleAdsAccounts.find(acc => acc.id === selectedAccount)?.descriptive_name,
+        });
+      }
+      
+      // Refresh the entire campaigns list if callback is provided
+      if (onRefresh) {
+        onRefresh();
+      }
       
       onPublish();
 
@@ -164,16 +214,21 @@ export default function PreviewModal({
 
   const handleSave = async (updatedData: any) => {
     try {
-      const { data, error } = await supabase
-        .from('campaigns')
-        .update(updatedData)
-        .eq('id', currentRow.id)
-        .select()
-        .single();
+      const response = await fetch(`/api/campaigns/${currentRow.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updatedData),
+      });
 
-      if (error) {
-        throw error;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update campaign');
       }
+
+      const { data: updatedDataArray } = await response.json();
+      const data = updatedDataArray[0];
 
       setCurrentRow(data);
       onUpdateRow(data);
