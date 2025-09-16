@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { GoogleAdsService } from '@/lib/googleAdsService';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import {
@@ -8,31 +9,64 @@ import {
 
 export async function GET() {
     try {
+        // Check if user is authenticated
         const session = await getServerSession(authOptions);
-        if (!session?.user?.email) {
+        if (!session?.accessToken || !session?.user?.email) {
             return NextResponse.json(
                 { error: 'Authentication required' },
                 { status: 401 }
             );
         }
 
-        const status = await getGoogleAdsConnectionStatus(session.user.email);
+        // Test the connection by trying to fetch accounts
+        console.log('Testing Google Ads connection for user:', session.user.email);
 
-        if (status === null) {
+        const googleAdsService = new GoogleAdsService();
+        const initialized = await googleAdsService.initialize();
+
+        if (!initialized) {
+            await updateGoogleAdsConnectionStatus(session.user.email, false);
             return NextResponse.json(
-                { error: 'User not found' },
-                { status: 404 }
+                { error: 'Failed to initialize Google Ads client', connected: false },
+                { status: 500 }
             );
         }
 
-        return NextResponse.json({
-            connected: status.connected,
-            lastChecked: status.lastChecked,
-        });
+        try {
+            // Try to fetch accounts to test connection
+            const accounts = await googleAdsService.getCustomerAccounts();
+
+            // Update the connection status in database
+            await updateGoogleAdsConnectionStatus(session.user.email, true);
+
+            return NextResponse.json({
+                success: true,
+                message: 'Successfully connected to Google Ads',
+                connected: true,
+                accounts: accounts || [],
+                lastChecked: new Date().toISOString(),
+            });
+        } catch (error: any) {
+            await updateGoogleAdsConnectionStatus(session.user.email, false);
+
+            return NextResponse.json({
+                success: false,
+                message: `Connection failed: ${error.message}`,
+                connected: false,
+            }, { status: 400 });
+        }
+
     } catch (error: any) {
-        console.error('Error getting connection status:', error);
+        console.error('Google Ads connection test error:', error);
+
+        // Update status to failed if we have user email
+        const session = await getServerSession(authOptions);
+        if (session?.user?.email) {
+            await updateGoogleAdsConnectionStatus(session.user.email, false);
+        }
+
         return NextResponse.json(
-            { error: 'Internal server error' },
+            { error: 'Internal server error', details: error.message, connected: false },
             { status: 500 }
         );
     }
@@ -50,49 +84,32 @@ export async function POST(request: NextRequest) {
 
         const { action } = await request.json();
 
-        if (action === 'disconnect') {
-            // Set connection status to false
-            const success = await updateGoogleAdsConnectionStatus(
-                session.user.email,
-                false
-            );
+        if (action === 'connect') {
+            // Test connection and update status
+            const googleAdsService = new GoogleAdsService();
+            const initialized = await googleAdsService.initialize();
+            console.log(initialized, "initialized================")
 
-            if (success) {
-                return NextResponse.json({
-                    success: true,
-                    message: 'Google Ads disconnected successfully',
-                    connected: false,
-                });
-            } else {
+            if (!initialized) {
+                await updateGoogleAdsConnectionStatus(session.user.email, false);
                 return NextResponse.json(
-                    { error: 'Failed to update connection status' },
+                    { error: 'Failed to initialize Google Ads client', connected: false },
                     { status: 500 }
                 );
             }
-        } else if (action === 'connect') {
-            // Test the connection and update status
-            const { GoogleAdsService } = await import('@/lib/googleAdsService');
 
             try {
-                const googleAdsService = new GoogleAdsService();
-                const initialized = await googleAdsService.initialize();
+                const accounts = await googleAdsService.getCustomerAccounts();
+                console.log(accounts, "accounts================")
+                console.log(session, "email================")
+                await updateGoogleAdsConnectionStatus(session.user.email, true);
 
-                if (!initialized) {
-                    await updateGoogleAdsConnectionStatus(session.user.email, false);
-                    return NextResponse.json({
-                        success: false,
-                        message: 'Failed to initialize Google Ads client',
-                        connected: false,
-                    });
-                }
-
-                const connectionTest = await googleAdsService.testConnection();
-                await updateGoogleAdsConnectionStatus(session.user.email, connectionTest.success);
 
                 return NextResponse.json({
-                    success: connectionTest.success,
-                    message: connectionTest.message,
-                    connected: connectionTest.success,
+                    success: true,
+                    message: 'Successfully connected to Google Ads',
+                    connected: true,
+                    accounts: accounts || [],
                 });
             } catch (error: any) {
                 await updateGoogleAdsConnectionStatus(session.user.email, false);
@@ -100,18 +117,26 @@ export async function POST(request: NextRequest) {
                     success: false,
                     message: `Connection failed: ${error.message}`,
                     connected: false,
-                });
+                }, { status: 400 });
             }
-        } else {
-            return NextResponse.json(
-                { error: 'Invalid action. Use "connect" or "disconnect"' },
-                { status: 400 }
-            );
+        } else if (action === 'disconnect') {
+            await updateGoogleAdsConnectionStatus(session.user.email, false);
+            return NextResponse.json({
+                success: true,
+                message: 'Disconnected from Google Ads',
+                connected: false,
+            });
         }
-    } catch (error: any) {
-        console.error('Error managing connection:', error);
+
         return NextResponse.json(
-            { error: 'Internal server error' },
+            { error: 'Invalid action' },
+            { status: 400 }
+        );
+
+    } catch (error: any) {
+        console.error('Google Ads status update error:', error);
+        return NextResponse.json(
+            { error: 'Internal server error', details: error.message },
             { status: 500 }
         );
     }

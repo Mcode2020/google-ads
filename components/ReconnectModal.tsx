@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useGoogleAuth } from "@/hooks/useGoogleAuth";
+import { signIn } from "next-auth/react";
 
 interface ReconnectModalProps {
   isOpen: boolean;
@@ -11,12 +11,15 @@ interface ReconnectModalProps {
 
 export default function ReconnectModal({ isOpen, onClose, message }: ReconnectModalProps) {
   const [isReconnecting, setIsReconnecting] = useState(false);
-  const { reconnect } = useGoogleAuth();
 
   const handleReconnect = async () => {
     setIsReconnecting(true);
     try {
-      await reconnect();
+      // Redirect to Google OAuth sign-in
+      await signIn('google', { 
+        callbackUrl: window.location.href,
+        prompt: 'consent' // Force consent to get new refresh token
+      });
       onClose();
     } catch (error) {
       console.error("Reconnection failed:", error);

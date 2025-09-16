@@ -3,10 +3,12 @@ import React from 'react';
 import CampaignsTable from '@/components/CampaignsTable';
 import AuthButton from '@/components/AuthButton';
 import GoogleAdsIntegration from '@/components/GoogleAdsIntegration';
-import { useGoogleAuth } from '@/hooks/useGoogleAuth';
+import { useSession } from 'next-auth/react';
 
 export default function DashboardPage() {
-  const { isAuthenticated, isLoading, session } = useGoogleAuth();
+  const { data: session, status } = useSession();
+  const isLoading = status === "loading";
+  const isAuthenticated = status === "authenticated" && !!session;
 
   if (isLoading) {
     return (

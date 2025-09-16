@@ -1,21 +1,26 @@
 "use client";
 
-import { useGoogleAuth } from "@/hooks/useGoogleAuth";
+import { useSession, signIn, signOut } from "next-auth/react";
 import { useState } from "react";
+import { isTokenExpired } from "@/utils/tokenExpiration";
 
 export default function AuthButton() {
-  const { isAuthenticated, isLoading, isExpired, login, logout, reconnect } = useGoogleAuth();
+  const { data: session, status } = useSession();
   const [isProcessing, setIsProcessing] = useState(false);
+  
+  const isLoading = status === "loading";
+  const isAuthenticated = status === "authenticated" && !!session;
+  const isExpired = session?.expires_at ? isTokenExpired(session.expires_at) : false;
 
   const handleAuth = async () => {
     setIsProcessing(true);
     try {
       if (!isAuthenticated) {
-        await login();
+        await signIn('google');
       } else if (isExpired) {
-        await reconnect();
+        await signIn('google', { prompt: 'consent' });
       } else {
-        await logout();
+        await signOut();
       }
     } catch (error) {
       console.error("Authentication error:", error);

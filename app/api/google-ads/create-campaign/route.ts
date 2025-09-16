@@ -132,7 +132,7 @@ export async function POST(request: NextRequest) {
                     last_synced: new Date().toISOString(),
                 })
                 .eq('id', campaignId)
-                .eq('user_id', '5aa6bc47-6757-4bfc-a3ce-6eb3e8f8488f');
+                .eq('user_id', userData.id);
 
             if (updateError) {
                 console.error('Failed to update campaign with Google Ads info:', updateError);
