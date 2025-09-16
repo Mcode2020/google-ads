@@ -104,12 +104,11 @@ export class GoogleAdsService {
     }
 
 
-    async createCampaign(customerId: string, campaignData: any): Promise<any> {
+    async createCampaign(customer_id: string, campaignData: any): Promise<any> {
         if (!this.client) throw new Error("Google Ads client not initialized");
 
         try {
             const refreshToken = await this.getRefreshToken();
-            const customer_id = process.env.CUSTOMER_ID!;
             const login_customer_id = process.env.LOGIN_CUSTOMER_ID!;
             const customer = this.client.Customer({
                 customer_id,
