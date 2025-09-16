@@ -19,15 +19,14 @@
     target_locations: string[];
     };
 
-    export default function CampaignsTable() {
-    const [rows, setRows] = useState<Row[]>([]);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [showForm, setShowForm] = useState(false);
-    const [previewRow, setPreviewRow] = useState<Row | null>(null);
-    const [syncingId, setSyncingId] = useState<string | null>(null);
-
-    // Pagination state
+export default function CampaignsTable() {
+const [rows, setRows] = useState<Row[]>([]);
+const [loading, setLoading] = useState(false);
+const [error, setError] = useState<string | null>(null);
+const [showForm, setShowForm] = useState(false);
+const [previewRow, setPreviewRow] = useState<Row | null>(null);
+const [syncingId, setSyncingId] = useState<string | null>(null);
+const [googleAdsConnected, setGoogleAdsConnected] = useState<boolean>(false);    // Pagination state
     const [currentPage, setCurrentPage] = useState(1);
     const rowsPerPage = 10;
 
@@ -109,10 +108,20 @@
   }
 }
 
-
+    async function checkGoogleAdsConnection() {
+        try {
+            const response = await fetch('/api/google-ads/status');
+            const data = await response.json();
+            setGoogleAdsConnected(data.connected || false);
+        } catch (error) {
+            console.error('Error checking Google Ads connection:', error);
+            setGoogleAdsConnected(false);
+        }
+    }
 
     useEffect(() => {
         load();
+        checkGoogleAdsConnection();
     }, []);
 
     const handleApplyFilters = () => {
@@ -356,18 +365,27 @@
                             }
                         />
                         </button>
-                        <a
-                        href={
-                            row.google_ads_link ||
-                            'https://ads.google.com/aw/campaigns'
-                        }
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-gray-600 hover:text-gray-800"
-                        title="Edit in Google Ads"
-                        >
-                        <SiGoogle size={20} />
-                        </a>
+                        {googleAdsConnected ? (
+                            <a
+                                href={
+                                    row.google_ads_link ||
+                                    'https://ads.google.com/aw/campaigns'
+                                }
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-gray-600 hover:text-gray-800"
+                                title="Edit in Google Ads"
+                            >
+                                <SiGoogle size={20} />
+                            </a>
+                        ) : (
+                            <span
+                                className="text-gray-300 cursor-not-allowed"
+                                title="Connect to Google Ads to enable this feature"
+                            >
+                                <SiGoogle size={20} />
+                            </span>
+                        )}
                     </td>
                     </tr>
                 ))}

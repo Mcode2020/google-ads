@@ -52,71 +52,48 @@ export class GoogleAdsService {
         console.log('Fetching accessible customer accounts with refresh token:', refreshToken);
 
         try {
-            const response = await this.client.listAccessibleCustomers(refreshToken);
-            console.log('listAccessibleCustomers response:', response);
-
-            if (!response?.resource_names?.length) return [];
 
             const accounts: CustomerAccount[] = [];
 
-            for (const resourceName of response.resource_names) {
-                const customerId = resourceName.split('/')[1];
-                const customer_id = process.env.CUSTOMER_ID!;
-                const login_customer_id = process.env.LOGIN_CUSTOMER_ID!;
-                try {
-                    const customer = this.client.Customer({
-                        // customer_id: customerId,
-                        refresh_token: refreshToken,
-                        customer_id,
-                        // refresh_token: refreshToken,
-                        login_customer_id,
+            const login_customer_id = process.env.LOGIN_CUSTOMER_ID!;
+            try {
+                const customer = this.client.Customer({
+                    refresh_token: refreshToken,
+                    customer_id: login_customer_id,
+                });
 
-                    });
-
-                    const query = `
-          SELECT
-            customer.id,
-            customer.descriptive_name,
-            customer.currency_code,
-            customer.time_zone,
-            customer.manager
-          FROM customer
-          LIMIT 1
+                const query = `
+           SELECT
+                            customer_client.client_customer,
+                            customer_client.level,
+                            customer_client.manager,
+                            customer_client.descriptive_name,
+                            customer_client.currency_code,
+                            customer_client.time_zone,
+                            customer_client.id
+                        FROM customer_client
+          LIMIT 10
         `;
 
-                    const customerData = await customer.query(query);
-
-                    const info = customerData?.[0]?.customer;
-
-                    if (info?.id != null) {
-                        accounts.push({
-                            id: info.id.toString(),
-                            descriptive_name: info.descriptive_name || `Account ${customerId}`,
-                            currency_code: info.currency_code || 'USD',
-                            time_zone: info.time_zone || 'UTC',
-                            manager: info.manager ?? false,
-                        });
-                    } else {
-                        // fallback if info is null/undefined
-                        accounts.push({
-                            id: customerId,
-                            descriptive_name: `Google Ads Account ${customerId}`,
-                            currency_code: 'USD',
-                            time_zone: 'UTC',
-                            manager: false,
-                        });
-                    }
-                } catch (err) {
-                    console.warn(`Failed to fetch details for ${customerId}, using fallback`, err);
-                    accounts.push({
-                        id: customerId,
-                        descriptive_name: `Google Ads Account ${customerId}`,
-                        currency_code: 'USD',
-                        time_zone: 'UTC',
-                        manager: false,
-                    });
+                const customerData = await customer.query(query);
+                console.log("customer data", customerData)
+                const info = customerData;
+                for (const acc of info) {
+                    const account: any = acc.customer_client;
+                    if (account.manager) continue;
+                    accounts.push({ id: account.id.toString(), descriptive_name: account.descriptive_name || `Account ${account.id}`, currency_code: account.currency_code || 'USD', time_zone: account.time_zone || 'UTC', manager: account.manager ?? false, });
                 }
+            } catch (err) {
+                console.warn(`Failed to fetch details for ${login_customer_id}, using fallback`, err);
+                accounts.push({
+                    id: login_customer_id,
+                    descriptive_name: `Google Ads Account ${login_customer_id}`,
+                    currency_code: 'USD',
+                    time_zone: 'UTC',
+                    manager: false,
+                });
             }
+
 
             return accounts;
 
