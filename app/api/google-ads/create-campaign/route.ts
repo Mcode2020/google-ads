@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Create campaign in Google Ads
-        const result = await googleAdsService.createCampaign('293278', {
+        const result = await googleAdsService.createCampaign(customerId, {
             name: campaignData.name,
             dailyBudget: campaignData.daily_budget,
             keywords: campaignData.keywords || [],
