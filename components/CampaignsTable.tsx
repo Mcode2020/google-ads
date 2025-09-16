@@ -19,14 +19,14 @@
     target_locations: string[];
     };
 
-export default function CampaignsTable() {
+export default function CampaignsTable({ isGoogleAdsConnected }: { isGoogleAdsConnected: boolean }) {
 const [rows, setRows] = useState<Row[]>([]);
 const [loading, setLoading] = useState(false);
 const [error, setError] = useState<string | null>(null);
 const [showForm, setShowForm] = useState(false);
 const [previewRow, setPreviewRow] = useState<Row | null>(null);
 const [syncingId, setSyncingId] = useState<string | null>(null);
-const [googleAdsConnected, setGoogleAdsConnected] = useState<boolean>(false);    // Pagination state
+// Remove redundant local state - use prop directly    // Pagination state
     const [currentPage, setCurrentPage] = useState(1);
     const rowsPerPage = 10;
 
@@ -108,21 +108,15 @@ const [googleAdsConnected, setGoogleAdsConnected] = useState<boolean>(false);   
   }
 }
 
-    async function checkGoogleAdsConnection() {
-        try {
-            const response = await fetch('/api/google-ads/status');
-            const data = await response.json();
-            setGoogleAdsConnected(data.connected || false);
-        } catch (error) {
-            console.error('Error checking Google Ads connection:', error);
-            setGoogleAdsConnected(false);
-        }
-    }
-
+    // No longer needed - using prop directly
+    // async function checkGoogleAdsConnection() {
+    //     setGoogleAdsConnected(isGoogleAdsConnected);
+    // }
+    console.log(isGoogleAdsConnected,"isGoogleAdsConnected===========");
     useEffect(() => {
         load();
-        checkGoogleAdsConnection();
-    }, []);
+        // No need to call checkGoogleAdsConnection since we use prop directly
+    }, []); // Back to empty dependency since we only need to load once
 
     const handleApplyFilters = () => {
         setStatusFilter(tempStatusFilter);
@@ -365,7 +359,7 @@ const [googleAdsConnected, setGoogleAdsConnected] = useState<boolean>(false);   
                             }
                         />
                         </button>
-                        {googleAdsConnected ? (
+                        {isGoogleAdsConnected ? (
                             <a
                                 href={
                                     row.google_ads_link ||

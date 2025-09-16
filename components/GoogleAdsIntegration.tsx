@@ -18,7 +18,7 @@ interface ConnectionStatus {
   lastChecked?: string;
 }
 
-export default function GoogleAdsIntegration() {
+export default function GoogleAdsIntegration({ updateGoogleAdsConnections }: { updateGoogleAdsConnections: (connected: boolean) => void }) {
   const { data: session, status } = useSession();
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus | null>(null);
   const [accounts, setAccounts] = useState<GoogleAdsAccount[]>([]);
@@ -46,12 +46,17 @@ export default function GoogleAdsIntegration() {
       if (data.connected && data.accounts) {
         setAccounts(data.accounts);
       }
+      
+      // Update the parent component with the current connection status
+      updateGoogleAdsConnections(data.connected);
     } catch (error) {
       console.error('Error checking connection status:', error);
       setConnectionStatus({
         connected: false,
         message: 'Failed to check connection status',
       });
+      // Update parent component that connection failed
+      updateGoogleAdsConnections(false);
     }
   };
 
@@ -77,6 +82,7 @@ export default function GoogleAdsIntegration() {
       if (data.connected) {
         toast.success('Google Ads connected successfully!');
         setAccounts(data.accounts || []);
+        updateGoogleAdsConnections(true);
       } else {
         toast.error(`Connection failed: ${data.message}`);
       }
@@ -87,8 +93,10 @@ export default function GoogleAdsIntegration() {
         connected: false,
         message: `Connection error: ${error.message}`,
       });
+      updateGoogleAdsConnections(false);
     } finally {
       setIsConnecting(false);
+
     }
   };
 
@@ -112,6 +120,7 @@ export default function GoogleAdsIntegration() {
       });
       
       // Clear accounts
+      updateGoogleAdsConnections(false);
       setAccounts([]);
       
       toast.success('Disconnected from Google Ads');

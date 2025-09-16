@@ -1,5 +1,5 @@
 'use client';
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import CampaignsTable from '@/components/CampaignsTable';
 import AuthButton from '@/components/AuthButton';
 import GoogleAdsIntegration from '@/components/GoogleAdsIntegration';
@@ -9,6 +9,11 @@ export default function DashboardPage() {
   const { data: session, status } = useSession();
   const isLoading = status === "loading";
   const isAuthenticated = status === "authenticated" && !!session;
+  const [isGoogleAdsConnected, setIsGoogleAdsConnected] = useState<boolean>(false);
+  
+  const updateGoogleAdsConnections = useCallback((connected: boolean) => {
+    setIsGoogleAdsConnected(connected);
+  }, []);
 
   if (isLoading) {
     return (
@@ -48,12 +53,12 @@ export default function DashboardPage() {
       
       {/* Google Ads Integration Section */}
       <div className="mb-8">
-        <GoogleAdsIntegration />
+        <GoogleAdsIntegration updateGoogleAdsConnections={updateGoogleAdsConnections} />
       </div>
       
       {/* Original Campaigns Table */}
       <div className="">
-        <CampaignsTable />
+        <CampaignsTable isGoogleAdsConnected={isGoogleAdsConnected} />
       </div>
     </div>
   );
