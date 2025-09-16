@@ -1,5 +1,5 @@
 // app/api/campaigns/[id]/route.ts
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest, NextFetchEvent } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getServerSession } from "next-auth";
 import { authOptions } from '../../auth/[...nextauth]/route';
@@ -24,9 +24,9 @@ async function getUserId() {
     return user.id;
 }
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, context: { params: Promise<{ id: string }> }) {
     try {
-        const campaignId = params.id;
+        const campaignId = (await context.params).id;
         const userId = await getUserId();
 
         const body = await req.json();
@@ -49,9 +49,9 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     }
 }
 
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
     try {
-        const campaignId = params.id;
+        const campaignId = (await context.params).id;
         const userId = await getUserId();
 
         const { data, error } = await supabaseAdmin
