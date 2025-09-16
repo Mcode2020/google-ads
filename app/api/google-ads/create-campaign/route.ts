@@ -113,31 +113,31 @@ export async function POST(request: NextRequest) {
         }
 
         // Create campaign in Google Ads
-        const result = await googleAdsService.createCampaign(customerId, {
+        const result = await googleAdsService.createCampaign('293278', {
             name: campaignData.name,
             dailyBudget: campaignData.daily_budget,
             keywords: campaignData.keywords || [],
             targetLocations: campaignData.target_locations || [],
         });
 
-        if (result.success) {
+        if (result) {
             // Update the campaign in Supabase with Google Ads info
-            const { error: updateError } = await supabaseAdmin
-                .from('campaigns')
-                .update({
-                    google_ads_campaign_id: result.campaignId,
-                    google_ads_customer_id: customerId,
-                    google_ads_link: `https://ads.google.com/aw/campaigns?campaignId=${result.campaignId}`,
-                    status: 'published',
-                    last_synced: new Date().toISOString(),
-                })
-                .eq('id', campaignId)
-                .eq('user_id', userData.id);
+            // const { error: updateError } = await supabaseAdmin
+            //     .from('campaigns')
+            //     .update({
+            //         google_ads_campaign_id: result.campaignId,
+            //         google_ads_customer_id: customerId,
+            //         google_ads_link: `https://ads.google.com/aw/campaigns?campaignId=${result.campaignId}`,
+            //         status: 'published',
+            //         last_synced: new Date().toISOString(),
+            //     })
+            //     .eq('id', campaignId)
+            //     .eq('user_id', userData.id);
 
-            if (updateError) {
-                console.error('Failed to update campaign with Google Ads info:', updateError);
-                // Still return success since the Google Ads campaign was created
-            }
+            // if (updateError) {
+            //     console.error('Failed to update campaign with Google Ads info:', updateError);
+            //     // Still return success since the Google Ads campaign was created
+            // }
 
             return NextResponse.json({
                 success: true,

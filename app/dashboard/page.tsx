@@ -37,6 +37,7 @@ export default function DashboardPage() {
     <div className="p-6">
       <div className="flex justify-between items-center mb-5">
         <h1 className="text-2xl font-semibold">AdsPilot — Campaigns</h1>
+        <h1 className='text-sm text-green-600'>Test Mode</h1>
         <div className="flex items-center space-x-4">
           <span className="text-sm text-gray-600">
             Welcome, {session?.user?.name || session?.user?.email}

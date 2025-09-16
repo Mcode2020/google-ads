@@ -62,11 +62,16 @@ export async function getCustomerDetails(customerResourceName: string) {
     const client = await createGoogleAdsClient();
     if (!client) throw new Error("Google Ads client not initialized");
 
-    const customerId = customerResourceName.split('/')[1]; // extract ID
+    const customer_id = process.env.CUSTOMER_ID!;
+    const login_customer_id = process.env.LOGIN_CUSTOMER_ID!;
 
     const customer = client.Customer({
-        customer_id: customerId,
+        // customer_id: customerId,
         refresh_token: (await getServerSession(authOptions))?.refreshToken!,
+        customer_id,
+        // refresh_token: refreshToken,
+        login_customer_id,
+
     });
 
     const query = `

@@ -61,11 +61,16 @@ export class GoogleAdsService {
 
             for (const resourceName of response.resource_names) {
                 const customerId = resourceName.split('/')[1];
-
+                const customer_id = process.env.CUSTOMER_ID!;
+                const login_customer_id = process.env.LOGIN_CUSTOMER_ID!;
                 try {
                     const customer = this.client.Customer({
-                        customer_id: customerId,
+                        // customer_id: customerId,
                         refresh_token: refreshToken,
+                        customer_id,
+                        // refresh_token: refreshToken,
+                        login_customer_id,
+
                     });
 
                     const query = `
@@ -123,31 +128,45 @@ export class GoogleAdsService {
 
 
     async createCampaign(customerId: string, campaignData: any): Promise<any> {
-        if (!this.client) throw new Error('Google Ads client not initialized');
+        if (!this.client) throw new Error("Google Ads client not initialized");
 
         try {
             const refreshToken = await this.getRefreshToken();
-            console.log('Creating campaign:', campaignData.name, 'for customer:', customerId);
+            const customer_id = process.env.CUSTOMER_ID!;
+            const login_customer_id = process.env.LOGIN_CUSTOMER_ID!;
+            const customer = this.client.Customer({
+                customer_id,
+                refresh_token: refreshToken,
+                login_customer_id,
+            });
 
-            // Mock response for testing; replace with actual API call later
-            const mockResponse = {
-                results: [
-                    {
-                        resource_name: `customers/${customerId}/campaigns/mock_campaign_${Date.now()}`,
-                        status: 'PAUSED',
+            console.log("customer data", customer)
+            console.log("camaign data", campaignData)
+
+            const result = await customer.campaigns.create([
+                {
+                    name: campaignData.name,
+                    advertising_channel_type: "SEARCH",
+                    status: "PAUSED",
+                    manual_cpc: {},
+                    campaign_budget: `customers/${customer_id}/campaignBudgets/14942845366`,
+                    network_settings: {
+                        "target_google_search": true,
+                        "target_search_network": true,
+                        "target_content_network": true,
+                        "target_partner_search_network": false
                     },
-                ],
-                partial_failure_error: null,
-                request_id: `mock_request_${Date.now()}`,
-            };
+                    contains_eu_political_advertising: "DOES_NOT_CONTAIN_EU_POLITICAL_ADVERTISING"
+                },
+            ]);
 
-            console.log('Mock campaign created:', mockResponse);
-            return mockResponse;
 
+            console.log("Google Ads campaign created:", result);
+            return result;
         } catch (error: any) {
-            console.error('Error creating campaign:', error);
+            console.error("Error creating campaign:", error);
             throw new Error(`Failed to create campaign: ${error.message}`);
         }
     }
-
 }
+
