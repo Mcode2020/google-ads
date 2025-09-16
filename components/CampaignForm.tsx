@@ -56,64 +56,77 @@ onCreated: (updatedData: any) => void;
     }
   }, [initialData]);
 
-  async function handleSaveDraft() {
-    setError(null);
-    setLoading(true);
-    try {
-      const keywords = keywordsList;
+ async function handleSaveDraft() {
+  setError(null);
+  setLoading(true);
 
-      await simulateApi(async () => {
-        if (initialData) {
-          // Update existing campaign
-          const { error } = await supabase
-            .from('campaigns')
-            .update({
-              name: draft.name,
-              daily_budget: Number(draft.daily_budget),
-              target_locations: draft.target_locations,
-              keywords,
-              last_synced: new Date().toISOString(),
-            })
-            .eq('id', initialData.id);
-          if (error) throw error;
-          toast.success('Campaign updated successfully');
-        } else {
-          // Insert new campaign
-          const { error } = await supabase.from('campaigns').insert({
+  try {
+    const keywords = keywordsList;
+
+    await simulateApi(async () => {
+      if (initialData) {
+        // 🔄 UPDATE existing campaign
+        const res = await fetch(`/api/campaigns/${initialData.id}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
             name: draft.name,
             daily_budget: Number(draft.daily_budget),
             target_locations: draft.target_locations,
             keywords,
-            status: 'draft',
+            last_synced: new Date().toISOString(),
+          }),
+        });
+
+        const result = await res.json();
+        if (result.error) throw new Error(result.error);
+        toast.success("Campaign updated successfully");
+      } else {
+        // ➕ INSERT new campaign
+        const res = await fetch("/api/campaigns", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: draft.name,
+            daily_budget: Number(draft.daily_budget),
+            target_locations: draft.target_locations,
+            keywords,
+            status: "draft",
             last_synced: null,
-            google_ads_link: `https://ads.google.com/aw/campaigns?campaignId=${Math.random()
-              .toString(36)
-              .slice(2)}`,
-          });
-          if (error) throw error;
-          toast.success('Campaign saved to draft successfully');
-        }
-      }, 700 + Math.random() * 500, 0.1);
+          }),
+        });
 
-      // Reset if creating new
-      if (!initialData) {
-        setDraft({ id: '', name: '', daily_budget: '10', target_locations: [] });
-        setKeywordInput('');
-        setKeywordsList([]);
+        const result = await res.json();
+        if (result.error) throw new Error(result.error);
+        toast.success("Campaign saved to draft successfully");
       }
+    }, 700 + Math.random() * 500, 0.1);
 
-      const updatedData = {
-        ...draft,
-        keywords: keywordsList,
-        status: initialData?.status || 'draft',
-      };
-
-  onCreated(updatedData);    } catch (err: any) {
-      setError(err.message || 'Unknown error');
-    } finally {
-      setLoading(false);
+    // Reset form if creating new
+    if (!initialData) {
+      setDraft({ id: "", name: "", daily_budget: "10", target_locations: [] });
+      setKeywordInput("");
+      setKeywordsList([]);
     }
+
+    const updatedData = {
+      ...draft,
+      keywords: keywordsList,
+      status: initialData?.status || "draft",
+    };
+    onCreated(updatedData);
+  } catch (err: any) {
+    setError(err.message || "Unknown error");
+  } finally {
+    setLoading(false);
   }
+}
+
+
 
   const locationOptions = availableLocations.map((loc) => ({
     value: loc,

@@ -19,15 +19,14 @@
     target_locations: string[];
     };
 
-    export default function CampaignsTable() {
-    const [rows, setRows] = useState<Row[]>([]);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [showForm, setShowForm] = useState(false);
-    const [previewRow, setPreviewRow] = useState<Row | null>(null);
-    const [syncingId, setSyncingId] = useState<string | null>(null);
-
-    // Pagination state
+export default function CampaignsTable() {
+const [rows, setRows] = useState<Row[]>([]);
+const [loading, setLoading] = useState(false);
+const [error, setError] = useState<string | null>(null);
+const [showForm, setShowForm] = useState(false);
+const [previewRow, setPreviewRow] = useState<Row | null>(null);
+const [syncingId, setSyncingId] = useState<string | null>(null);
+const [googleAdsConnected, setGoogleAdsConnected] = useState<boolean>(false);    // Pagination state
     const [currentPage, setCurrentPage] = useState(1);
     const rowsPerPage = 10;
 
@@ -40,7 +39,7 @@
     const [budgetRange, setBudgetRange] = useState<[number, number]>([0, 1000]);
 
     // Filtered rows
-    const filteredRows = rows.filter((row) => {
+    const filteredRows = rows?.filter((row) => {
         const matchesStatus = statusFilter === 'all' ? true : row.status === statusFilter;
         const matchesBudget = row.daily_budget >= budgetRange[0] && row.daily_budget <= budgetRange[1];
         return matchesStatus && matchesBudget;
@@ -53,46 +52,76 @@
         currentPage * rowsPerPage
     );
 
-    async function load() {
-        setError(null);
-        setLoading(true);
-        try {
-        const data = await simulateApi(async () => {
-            const { data, error } = await supabase
-            .from('campaigns')
-            .select('*')
-            .order('created_at', { ascending: false });
-            if (error) throw error;
-            return data;
-        });
-        setRows((data as any[]) || []);
-        } catch (err: any) {
-        setError(err.message || 'Failed to load');
-        } finally {
-        setLoading(false);
-        }
-    }
+   async function load() {
+  setError(null);
+  setLoading(true);
 
-    async function handleSync(row: Row) {
-        setSyncingId(row.id);
+  try {
+    // Directly call your Next.js API route — NextAuth session cookies are sent automatically
+    const res = await fetch("/api/campaigns");
+
+    if (!res.ok) throw new Error("Failed to load campaigns");
+
+    const data: Row[] = await res.json();
+    setRows(data || []);
+  } catch (err: any) {
+    console.error("Load failed:", err);
+    setError(err.message || "Failed to load");
+  } finally {
+    setLoading(false);
+  }
+}
+
+
+  async function handleSync(row: Row) {
+  if (!row?.id) return;
+  setSyncingId(row.id);
+  setError(null);
+
+  try {
+    await simulateApi(async () => {
+      const res = await fetch(`/api/campaigns/${row.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ last_synced: new Date().toISOString() }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData?.error || "Sync failed");
+      }
+
+      const updatedRow: Row = (await res.json()).data[0];
+
+      // Update only the changed row
+      setRows((prev) =>
+        prev.map((r) => (r.id === row.id ? { ...r, ...updatedRow } : r))
+      );
+    }, 1000, 0.1); // 1s delay, 10% simulated error
+  } catch (err: any) {
+    console.error("Sync failed:", err);
+    setError(err?.message || "Sync failed");
+  } finally {
+    setSyncingId(null);
+  }
+}
+
+    async function checkGoogleAdsConnection() {
         try {
-        await simulateApi(async () => {
-            const { error } = await supabase
-            .from('campaigns')
-            .update({ last_synced: new Date().toISOString() })
-            .eq('id', row.id);
-            if (error) throw error;
-        }, 1000, 0.1);
-        await load();
-        } catch (err: any) {
-        setError(err.message || 'Sync failed');
-        } finally {
-        setSyncingId(null);
+            const response = await fetch('/api/google-ads/status');
+            const data = await response.json();
+            setGoogleAdsConnected(data.connected || false);
+        } catch (error) {
+            console.error('Error checking Google Ads connection:', error);
+            setGoogleAdsConnected(false);
         }
     }
 
     useEffect(() => {
         load();
+        checkGoogleAdsConnection();
     }, []);
 
     const handleApplyFilters = () => {
@@ -336,18 +365,27 @@
                             }
                         />
                         </button>
-                        <a
-                        href={
-                            row.google_ads_link ||
-                            'https://ads.google.com/aw/campaigns'
-                        }
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-gray-600 hover:text-gray-800"
-                        title="Edit in Google Ads"
-                        >
-                        <SiGoogle size={20} />
-                        </a>
+                        {googleAdsConnected ? (
+                            <a
+                                href={
+                                    row.google_ads_link ||
+                                    'https://ads.google.com/aw/campaigns'
+                                }
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-gray-600 hover:text-gray-800"
+                                title="Edit in Google Ads"
+                            >
+                                <SiGoogle size={20} />
+                            </a>
+                        ) : (
+                            <span
+                                className="text-gray-300 cursor-not-allowed"
+                                title="Connect to Google Ads to enable this feature"
+                            >
+                                <SiGoogle size={20} />
+                            </span>
+                        )}
                     </td>
                     </tr>
                 ))}
@@ -406,6 +444,7 @@
             onClose={() => setPreviewRow(null)}
             onPublish={load}
             onUpdateRow={handleUpdateRow}
+            onRefresh={load}
             />
         )}
         </div>
